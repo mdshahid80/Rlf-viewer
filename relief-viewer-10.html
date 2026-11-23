@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="theme-color" content="#2B3238">
+<title>Relief Viewer</title>
+<style>
+:root{
+  --canvas:#E4E7EA; --panel:#F7F8F9; --text:#1F252B; --muted:#5B6670; --line:#C7CDD2;
+  --teal:#1E7C88; --teal-ink:#FFFFFF; --brass:#C9973F; --grid:#B5BCC2; --grid-c:#8E979F;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --canvas:#2B3238; --panel:#353E47; --text:#E9ECEF; --muted:#A5AFB8; --line:#4A555F;
+    --teal:#3AA7B4; --teal-ink:#10242A; --grid:#434E58; --grid-c:#5E6B77;
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--canvas);color:var(--text);
+  font-family:Bahnschrift,"Roboto Condensed","Segoe UI",system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button,select,input{font:inherit;color:inherit}
+button{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer}
+button.primary{background:var(--teal);color:var(--teal-ink);border-color:transparent;font-weight:600}
+button[aria-pressed="true"]{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+header{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;pointer-events:none}
+header>*{pointer-events:auto}
+.title{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.title strong{display:block;font-size:17px;letter-spacing:.2px}
+#meta{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:56vw}
+
+#empty{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:none}
+#empty .card{pointer-events:auto;max-width:360px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+#empty h1{margin:0 0 8px;font-size:26px;line-height:1.15}
+#empty p{margin:0 0 18px;color:var(--muted);line-height:1.45;font-size:15px}
+#empty .actions{display:flex;gap:10px;flex-wrap:wrap}
+
+#sheet{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px 14px}
+#sheet[hidden],#manual[hidden],#empty[hidden]{display:none}
+#sheet{max-height:62vh;overflow:auto}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.btns.three{grid-template-columns:repeat(3,1fr)}
+.btns.two{grid-template-columns:repeat(2,1fr)}
+.note{font-size:13px;color:var(--muted);line-height:1.4}
+#toolPane .row{margin-bottom:8px}
+#gInfo{flex:1;min-width:0}
+#stockBox{margin:4px 0 8px;border:1px solid var(--line);border-radius:10px;padding:0 10px}
+#stockBox summary{min-height:44px;display:flex;align-items:center;font-size:14px;cursor:pointer}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 10px}
+.form label{display:block;font-size:12.5px;color:var(--muted)}
+.form select,.form input{display:block;width:100%;min-height:44px;margin-top:4px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--canvas);color:var(--text)}
+#stockBox>button{width:100%;margin-bottom:10px}
+.transport{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;margin-bottom:6px}
+.transport select{min-width:0}
+#gtime{width:100%;display:block}
+#gread{margin-top:6px}
+.tabs{grid-template-columns:1fr 1fr auto}
+.tabs #hideMenu{padding:0 14px}
+#fab{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));display:none;gap:8px;z-index:4}
+#fab button{border-radius:22px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+#fab button[hidden]{display:none}
+body.hidemenu header,body.hidemenu #sheet{display:none}
+body.hidemenu #fab{display:flex}
+.row{display:flex;align-items:center;gap:12px}
+.row label{flex:0 0 auto;font-size:14px;min-width:116px}
+.row output{color:var(--muted);margin-left:6px}
+input[type=range]{flex:1;min-width:0;height:36px;accent-color:var(--teal)}
+#sheet select{flex:1;min-width:0;min-height:44px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--canvas)}
+.btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+.btns button{padding:0 6px;font-size:14px}
+.legend{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px;color:var(--muted)}
+.legend i{flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#1E5F6B,#2A8C97 50%,#E3B35C)}
+
+#manual{position:fixed;left:10px;right:10px;top:calc(70px + env(safe-area-inset-top));max-width:420px;margin:0 auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100% - 90px);overflow:auto}
+#manual h2{margin:0 0 6px;font-size:20px}
+#manual p{margin:0 0 12px;color:var(--muted);font-size:14px;line-height:1.45}
+#manual label{display:block;font-size:14px;margin-bottom:10px}
+#manual select,#manual input{display:block;width:100%;min-height:44px;margin-top:4px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--canvas)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#manual .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:4px}
+
+#gallery{position:fixed;left:0;right:0;bottom:0;top:calc(76px + env(safe-area-inset-top));z-index:3;background:var(--canvas);
+  overflow:auto;padding:4px 12px calc(16px + env(safe-area-inset-bottom))}
+#gallery[hidden]{display:none}
+.galhead{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px}
+.galhead strong{font-size:17px}
+#galGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:640px}
+.card{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;text-align:left;padding:8px;min-height:0;border-radius:12px;width:100%}
+.card canvas{display:block;width:100%;aspect-ratio:1;object-fit:contain;border-radius:8px;background:var(--canvas)}
+.card .nm{display:block;margin-top:8px;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .mt{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--muted)}
+.hbtns{display:flex;gap:8px}
+#msg{position:fixed;left:50%;top:calc(76px + env(safe-area-inset-top));transform:translateX(-50%);max-width:90vw;
+  background:var(--text);color:var(--panel);padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.35;z-index:5}
+#msg[hidden]{display:none}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="3D relief view"></canvas>
+
+<header>
+  <div class="title"><strong>Relief Viewer</strong><span id="meta">No file open</span></div>
+  <div class="hbtns">
+    <button id="filesBtn" hidden>Files</button>
+    <button id="open" class="primary">Open file</button>
+  </div>
+</header>
+
+<div id="empty">
+  <div class="card">
+    <h1>Open a relief file</h1>
+    <p>Works with ArtCAM relief files (.rlf), STL and OBJ models, grayscale height-map images, and G-code (.nc, .gcode, .tap) for toolpath simulation. Drag to rotate, pinch to zoom, two fingers to pan. Select several files at once to browse their previews.</p>
+    <div class="actions">
+      <button id="open2" class="primary">Open file</button>
+      <button id="sample">View a sample</button>
+    </div>
+  </div>
+</div>
+
+<section id="sheet" hidden>
+  <div class="tabs">
+    <button id="tabView" aria-pressed="true">Relief</button>
+    <button id="tabTool" aria-pressed="false">Toolpath</button>
+    <button id="hideMenu" aria-label="Hide menu">Hide</button>
+  </div>
+
+  <div id="viewPane">
+    <div class="row">
+      <label for="z">Relief height<output id="zv">1.0×</output></label>
+      <input id="z" type="range" min="0.2" max="4" step="0.05" value="1">
+    </div>
+    <div class="row">
+      <label for="qual">Image detail</label>
+      <select id="qual">
+        <option value="low">Low (fastest)</option>
+        <option value="med">Medium</option>
+        <option value="high" selected>High</option>
+        <option value="max">Maximum (slow on phones)</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="look">Look</label>
+      <select id="look"></select>
+    </div>
+    <div class="btns three">
+      <button id="vtop">Top</button>
+      <button id="vang">Angled</button>
+      <button id="wire" aria-pressed="false">Wireframe</button>
+    </div>
+    <div class="legend"><span id="lmin">0</span><i></i><span id="lmax">1</span></div>
+    <div class="btns three">
+      <button id="saveImg">Save image</button>
+      <button id="saveD8">Depth map</button>
+      <button id="saveD16">Depth 16-bit</button>
+    </div>
+  </div>
+
+  <div id="toolPane" hidden>
+    <div class="row">
+      <button id="openG" class="primary">Open G-code</button>
+      <span id="gInfo" class="note">Open a .nc, .gcode or .tap file to simulate the toolpath.</span>
+    </div>
+    <div id="gBody" hidden>
+      <details id="stockBox">
+        <summary id="stockSum">Stock, tool and material</summary>
+        <div class="form">
+          <label>Material<select id="gmat"></select></label>
+          <label>Tool
+            <select id="gtool">
+              <option value="ball" selected>Ball nose</option>
+              <option value="flat">Flat end mill</option>
+              <option value="v60">V-bit 60°</option>
+              <option value="v90">V-bit 90°</option>
+            </select>
+          </label>
+          <label>Tool diameter (mm)<input id="gdia" type="number" inputmode="decimal" step="0.1" min="0.1" value="6"></label>
+          <label>Stock thickness (mm)<input id="gthk" type="number" inputmode="decimal" step="0.5" min="0.5" value="20"></label>
+          <label>Stock width X (mm)<input id="gw" type="number" inputmode="decimal" step="1" min="1" value="100"></label>
+          <label>Stock depth Y (mm)<input id="gh" type="number" inputmode="decimal" step="1" min="1" value="100"></label>
+          <label>Z zero is at
+            <select id="gz"><option value="top">Top of material</option><option value="bottom">Bottom of material</option></select>
+          </label>
+          <label>X/Y zero is at
+            <select id="gorg"><option value="corner">Stock corner</option><option value="center">Stock centre</option></select>
+          </label>
+          <label>Simulation detail
+            <select id="gq">
+              <option value="150000">Low</option>
+              <option value="300000" selected>Medium</option>
+              <option value="700000">High</option>
+              <option value="1500000">Very high (strong phone)</option>
+              <option value="3000000">Ultra (very heavy)</option>
+            </select>
+          </label>
+          <label>Detail area
+            <select id="garea"><option value="all">Whole stock</option><option value="crop">Toolpath area only (sharper)</option></select>
+          </label>
+          <label>Rapid speed (mm/min)<input id="grapid" type="number" inputmode="numeric" step="100" min="100" value="5000"></label>
+        </div>
+        <button id="gapply" class="primary">Apply</button>
+      </details>
+      <div class="transport">
+        <button id="gplay" class="primary">Play</button>
+        <button id="greset">Reset</button>
+        <select id="gspeed" aria-label="Speed">
+          <option value="1">1× real time</option>
+          <option value="10">10×</option>
+          <option value="60">60×</option>
+          <option value="300">300×</option>
+          <option value="1000">1000×</option>
+          <option value="5000">5000×</option>
+          <option value="20000">20000×</option>
+        </select>
+      </div>
+      <input id="gtime" type="range" min="0" max="1000" value="0" aria-label="Timeline">
+      <div class="btns three">
+        <button id="gshowstock" aria-pressed="true">Material</button>
+        <button id="gshowpath" aria-pressed="true">Path lines</button>
+        <button id="saveImgT">Save image</button>
+      </div>
+      <div id="gread" class="note"></div>
+    </div>
+  </div>
+</section>
+
+<section id="manual" hidden role="dialog" aria-labelledby="mh">
+  <h2 id="mh">Set the data layout</h2>
+  <p id="mhint">The layout of this file could not be detected automatically. Enter it below to try again.</p>
+  <label>Data source<select id="msrc"></select></label>
+  <div class="grid2">
+    <label>Width (points)<input id="mw" type="number" inputmode="numeric" value="512" min="2"></label>
+    <label>Height (points)<input id="mh2" type="number" inputmode="numeric" value="512" min="2"></label>
+  </div>
+  <div class="grid2">
+    <label>Value type
+      <select id="mt">
+        <option value="float32">32-bit float</option>
+        <option value="uint16">16-bit integer</option>
+        <option value="float64">64-bit float</option>
+        <option value="uint8">8-bit integer</option>
+      </select>
+    </label>
+    <label>Header size (bytes)<input id="mo" type="number" inputmode="numeric" value="0" min="0"></label>
+  </div>
+  <div class="actions">
+    <button id="mcancel">Cancel</button>
+    <button id="mload" class="primary">Load</button>
+  </div>
+</section>
+
+<section id="gallery" hidden aria-label="Selected files">
+  <div class="galhead"><strong id="galTitle">Files</strong><button id="galClose">Close</button></div>
+  <div id="galGrid"></div>
+</section>
+
+<div id="fab"><button id="fabPlay" class="primary" hidden>Play</button><button id="fabShow">Menu</button></div>
+
+<div id="msg" role="status" hidden></div>
+<input id="file" type="file" multiple hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const canvas = $('#c');
+const QUALITY = { low: 150000, med: 400000, high: 900000, max: 1800000 };  // max mesh vertices per detail level
+let lastGrid = null, keepCam = false, currentLabel = '';
+const SIZE = 100;              // long side of the model in scene units
+const BASE_DEPTH = 12;         // default relief depth for height-maps, in scene units
+
+if (!window.THREE) {
+  $('#empty .card').innerHTML = '<h1>No connection</h1><p>The 3D engine could not be loaded. Connect to the internet and reload this page.</p>';
+  return;
+}
+
+/* ---------- scene ---------- */
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 5000);
+camera.up.set(0, 0, 1);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const key = new THREE.DirectionalLight(0xffffff, 0.85); key.position.set(-60, -80, 120); scene.add(key);
+const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(80, 60, 30); scene.add(fill);
+
+let grid = null, mesh = null, dirty = true;
+const orbit = { theta: -Math.PI / 2, phi: 1.0, dist: 160, target: new THREE.Vector3(0, 0, 0) };
+const info = { min: 0, max: 1, radius: 70 };
+
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function applyTheme() {
+  renderer.setClearColor(new THREE.Color(cssVar('--canvas')));
+  if (grid) { scene.remove(grid); grid.geometry.dispose(); }
+  grid = new THREE.GridHelper(140, 14, new THREE.Color(cssVar('--grid-c')), new THREE.Color(cssVar('--grid')));
+  grid.rotation.x = Math.PI / 2;
+  grid.position.z = -0.05;
+  scene.add(grid);
+  dirty = true;
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  dirty = true;
+}
+window.addEventListener('resize', resize);
+
+function placeCamera() {
+  const sp = Math.sin(orbit.phi);
+  camera.position.set(
+    orbit.target.x + orbit.dist * sp * Math.cos(orbit.theta),
+    orbit.target.y + orbit.dist * sp * Math.sin(orbit.theta),
+    orbit.target.z + orbit.dist * Math.cos(orbit.phi));
+  camera.lookAt(orbit.target);
+  camera.updateMatrixWorld();
+}
+function loop(now) {
+  simTick(now || performance.now());
+  if (dirty) { placeCamera(); renderer.render(scene, camera); dirty = false; }
+  requestAnimationFrame(loop);
+}
+
+function fitCamera() {
+  const vfov = THREE.MathUtils.degToRad(camera.fov);
+  const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+  orbit.dist = info.radius / Math.sin(Math.min(vfov, hfov) / 2) * 1.08;
+  dirty = true;
+}
+function setView(kind) {
+  if (kind === 'top') { orbit.phi = 0.02; orbit.theta = -Math.PI / 2; }
+  else { orbit.phi = 1.0; orbit.theta = -Math.PI / 2; }
+  fitCamera();
+}
+
+/* ---------- touch / mouse controls ---------- */
+const pts = new Map();
+let lastD = 0, lastMid = null;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function pan(dx, dy) {
+  const s = 2 * orbit.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / window.innerHeight;
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+  orbit.target.addScaledVector(right, -dx * s).addScaledVector(up, dy * s);
+}
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pts.size === 2) {
+    const [a, b] = [...pts.values()];
+    lastD = Math.hypot(a.x - b.x, a.y - b.y);
+    lastMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  const p = pts.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (pts.size === 1) {
+    if (e.shiftKey || e.buttons === 2) pan(dx, dy);
+    else {
+      orbit.theta -= dx * 0.008;
+      orbit.phi = clamp(orbit.phi - dy * 0.008, 0.02, Math.PI * 0.55);
+    }
+  } else if (pts.size === 2) {
+    const [a, b] = [...pts.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (lastD > 0 && d > 0) orbit.dist = clamp(orbit.dist * lastD / d, 15, 1200);
+    if (lastMid) pan(mid.x - lastMid.x, mid.y - lastMid.y);
+    lastD = d; lastMid = mid;
+  }
+  dirty = true;
+});
+const endPtr = e => { pts.delete(e.pointerId); lastMid = null; lastD = 0; };
+canvas.addEventListener('pointerup', endPtr);
+canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  orbit.dist = clamp(orbit.dist * Math.exp(e.deltaY * 0.001), 15, 1200);
+  dirty = true;
+}, { passive: false });
+
+/* ---------- helpers ---------- */
+const STOPS = [[0.118, 0.373, 0.420], [0.165, 0.549, 0.592], [0.890, 0.702, 0.361]];
+function ramp(t, out, i) {
+  t = clamp(t, 0, 1) * 2;
+  const k = Math.min(1, Math.floor(t)), f = t - k;
+  const a = STOPS[k], b = STOPS[k + 1];
+  out[i] = a[0] + (b[0] - a[0]) * f; out[i + 1] = a[1] + (b[1] - a[1]) * f; out[i + 2] = a[2] + (b[2] - a[2]) * f;
+}
+let msgTimer = 0;
+function toast(text, ms = 4500) {
+  const m = $('#msg'); m.textContent = text; m.hidden = false;
+  clearTimeout(msgTimer); msgTimer = setTimeout(() => { m.hidden = true; }, ms);
+}
+const fmtBytes = n => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B';
+const fmtNum = v => Math.abs(v) >= 1000 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2);
+
+function setMesh(geometry, label, detail, zMin, zMax, unit = '') {
+  currentLabel = label;
+  if (!keepCam) { $('#z').value = 1; $('#zv').textContent = '1.0×'; }
+  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); }
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    color: 0xffffff, roughness: 0.72, metalness: 0.05, side: THREE.DoubleSide,
+    wireframe: $('#wire').getAttribute('aria-pressed') === 'true'
+  });
+  mesh = new THREE.Mesh(geometry, mat);
+  mesh.scale.z = parseFloat($('#z').value);
+  scene.add(mesh);
+  geometry.computeBoundingSphere();
+  const bb = new THREE.Box3().setFromBufferAttribute(geometry.attributes.position);
+  const sz = bb.max.z - bb.min.z;
+  orbit.target.set(0, 0, sz * mesh.scale.z / 2);
+  info.radius = Math.max(geometry.boundingSphere.radius, 40);
+  reliefFit = { radius: info.radius, tz: sz * mesh.scale.z / 2 };
+  info.min = zMin; info.max = zMax;
+  $('#lmin').textContent = fmtNum(zMin) + unit; $('#lmax').textContent = fmtNum(zMax) + unit;
+  $('#meta').textContent = label + ' · ' + detail;
+  $('#empty').hidden = true; $('#sheet').hidden = false;
+  applyLook();
+  if (mode === 'tool') { keepCam = false; setMode('view'); }
+  else if (keepCam) { keepCam = false; dirty = true; }
+  else setView('angle');
+}
+
+/* ---------- height-map -> mesh ---------- */
+function buildHeightmap(w, h, data, label, phys) {
+  lastGrid = { w, h, data, label, phys };
+  const cap = QUALITY[$('#qual').value] || QUALITY.high;
+  const step = Math.max(1, Math.ceil(Math.sqrt(w * h / cap)));
+  const nw = Math.max(2, Math.floor(w / step)), nh = Math.max(2, Math.floor(h / step));
+  const g = new Float32Array(nw * nh);
+  let mn = Infinity, mx = -Infinity;
+  for (let j = 0; j < nh; j++) for (let i = 0; i < nw; i++) {
+    let s = 0, c = 0;
+    for (let dy = 0; dy < step; dy++) for (let dx = 0; dx < step; dx++) {
+      const x = Math.min(w - 1, i * step + dx), y = Math.min(h - 1, j * step + dy);
+      const v = data[y * w + x];
+      if (Number.isFinite(v)) { s += v; c++; }
+    }
+    const v = c ? s / c : NaN;
+    g[j * nw + i] = v;
+    if (c) { if (v < mn) mn = v; if (v > mx) mx = v; }
+  }
+  if (!Number.isFinite(mn)) throw new Error('This file has no usable height values.');
+  const range = (mx - mn) || 1;
+  const sx = SIZE / (Math.max(nw, nh) - 1);
+  // with real units (ArtCAM): true proportions, SIZE scene units = longest side in mm
+  const kz = phys ? SIZE / Math.max(phys.wmm, phys.hmm) : BASE_DEPTH / range;
+  const depth = range * kz;
+  if (!keepCam) {
+    const smax = Math.max(4, Math.min(40, Math.ceil(30 / depth)));   // thin reliefs get a wider slider, but start at 1x
+    $('#z').max = smax;
+  }
+  const pos = new Float32Array(nw * nh * 3), col = new Float32Array(nw * nh * 3);
+  for (let j = 0; j < nh; j++) for (let i = 0; i < nw; i++) {
+    const k = j * nw + i, v = Number.isFinite(g[k]) ? g[k] : mn, t = (v - mn) / range;
+    pos[k * 3] = (i - (nw - 1) / 2) * sx;
+    pos[k * 3 + 1] = ((nh - 1) / 2 - j) * sx;
+    pos[k * 3 + 2] = (v - mn) * kz;
+    ramp(t, col, k * 3);
+  }
+  const idx = new Uint32Array((nw - 1) * (nh - 1) * 6);
+  let p = 0;
+  for (let j = 0; j < nh - 1; j++) for (let i = 0; i < nw - 1; i++) {
+    const a = j * nw + i, b = a + 1, c = a + nw, d = c + 1;
+    idx[p++] = a; idx[p++] = c; idx[p++] = b; idx[p++] = b; idx[p++] = c; idx[p++] = d;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  geo.computeVertexNormals();
+  viewMmPerUnit = phys ? Math.max(phys.wmm, phys.hmm) / SIZE : 1;
+  setMesh(geo, label,
+    w + ' × ' + h + (phys ? ' · ' + fmtNum(phys.wmm) + ' × ' + fmtNum(phys.hmm) + ' mm' : '')
+      + (step > 1 ? ' (showing ' + nw + ' × ' + nh + ')' : ''),
+    mn, mx, phys ? ' mm' : '');
+}
+
+/* ---------- triangle meshes (STL / OBJ) ---------- */
+function buildTriangles(pos, label) {
+  lastGrid = null; $('#z').max = 4;
+  if (pos.length < 9) throw new Error('This model has no triangles.');
+  let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+  }
+  const s = SIZE / Math.max(maxX - minX, maxY - minY, 1e-9);
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, sz = (maxZ - minZ) * s || 1;
+  const col = new Float32Array(pos.length);
+  for (let i = 0; i < pos.length; i += 3) {
+    pos[i] = (pos[i] - cx) * s; pos[i + 1] = (pos[i + 1] - cy) * s; pos[i + 2] = (pos[i + 2] - minZ) * s;
+    ramp(pos[i + 2] / sz, col, i);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  viewMmPerUnit = 1;
+  setMesh(geo, label, (pos.length / 9 | 0).toLocaleString() + ' triangles', minZ, maxZ);
+}
+function parseSTL(buf) {
+  const dv = new DataView(buf);
+  if (buf.byteLength >= 84) {
+    const n = dv.getUint32(80, true);
+    if (84 + n * 50 === buf.byteLength) {
+      const pos = new Float32Array(n * 9);
+      let o = 84, p = 0;
+      for (let t = 0; t < n; t++) {
+        o += 12;
+        for (let k = 0; k < 9; k++) { pos[p++] = dv.getFloat32(o, true); o += 4; }
+        o += 2;
+      }
+      return pos;
+    }
+  }
+  const txt = new TextDecoder().decode(buf);
+  const out = [], re = /vertex\s+(\S+)\s+(\S+)\s+(\S+)/g;
+  let m;
+  while ((m = re.exec(txt))) out.push(+m[1], +m[2], +m[3]);
+  return new Float32Array(out);
+}
+function parseOBJ(text) {
+  const v = [], out = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (line.startsWith('v ')) { const a = line.trim().split(/\s+/); v.push([+a[1], +a[2], +a[3]]); }
+    else if (line.startsWith('f ')) {
+      const ids = line.trim().split(/\s+/).slice(1).map(t => {
+        let n = parseInt(t.split('/')[0], 10); return n < 0 ? v.length + n : n - 1;
+      });
+      for (let i = 1; i < ids.length - 1; i++)
+        for (const id of [ids[0], ids[i], ids[i + 1]]) { const q = v[id]; if (q) out.push(q[0], q[1], q[2]); }
+    }
+  }
+  return new Float32Array(out);
+}
+
+/* ---------- height-map images ---------- */
+async function loadImage(file) {
+  const bmp = await createImageBitmap(file);
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0);
+  const px = ctx.getImageData(0, 0, c.width, c.height).data;
+  const d = new Float32Array(c.width * c.height);
+  for (let i = 0; i < d.length; i++) d[i] = (0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2]) / 255;
+  buildHeightmap(c.width, c.height, d, file.name);
+}
+
+/* ---------- ArtCAM relief (.rlf) ---------- */
+const SZ = { float32: 4, uint16: 2, float64: 8, uint8: 1 };
+function readTyped(bytes, off, count, kind) {
+  const sl = bytes.slice(off, off + count * SZ[kind]);   // copy -> aligned buffer
+  switch (kind) {
+    case 'float32': return new Float32Array(sl.buffer);
+    case 'uint16': return new Uint16Array(sl.buffer);
+    case 'float64': return new Float64Array(sl.buffer);
+    default: return new Uint8Array(sl.buffer);
+  }
+}
+function looksLikeSurface(d, w, h) {
+  let sum = 0, c = 0, mn = Infinity, mx = -Infinity;
+  const rowStep = Math.max(1, Math.floor(h / 64));
+  for (let y = 0; y < h; y += rowStep) for (let x = 1; x < w; x++) {
+    const a = d[y * w + x], b = d[y * w + x - 1];
+    if (!Number.isFinite(a) || !Number.isFinite(b) || Math.abs(a) > 1e7) return false;
+    sum += Math.abs(a - b); c++;
+    if (a < mn) mn = a; if (a > mx) mx = a;
+  }
+  const range = mx - mn;
+  return c > 0 && range > 0 && (sum / c) / range < 0.12;
+}
+function guessGrid(head, body) {
+  const src = head.length ? head : body;
+  const limit = Math.min(src.length - 8, 1024);
+  const dv = new DataView(src.buffer, src.byteOffset, src.byteLength);
+  const seen = new Set(), dims = [];
+  const add = (w, h) => {
+    if (w < 8 || h < 8 || w > 16384 || h > 16384) return;
+    const k = w + 'x' + h; if (!seen.has(k)) { seen.add(k); dims.push([w, h]); }
+  };
+  for (let o = 0; o <= limit; o++) {
+    add(dv.getUint32(o, true), dv.getUint32(o + 4, true));
+    add(dv.getUint16(o, true), dv.getUint16(o + 2, true));
+  }
+  for (const kind of ['float32', 'uint16', 'float64', 'uint8']) {
+    for (const [w, h] of dims) {
+      const off = body.length - w * h * SZ[kind];
+      if (off < 0 || off > 4096) continue;
+      const d = readTyped(body, off, w * h, kind);
+      if (looksLikeSurface(d, w, h)) return { w, h, data: d };
+    }
+  }
+  return null;
+}
+function findZlib(raw) {
+  const hits = [];
+  for (let i = 0; i < raw.length - 2 && hits.length < 8; i++) {
+    if (raw[i] === 0x78 && (raw[i + 1] === 0x01 || raw[i + 1] === 0x5E || raw[i + 1] === 0x9C || raw[i + 1] === 0xDA)
+        && ((raw[i] << 8) | raw[i + 1]) % 31 === 0) hits.push(i);
+  }
+  return hits;
+}
+async function inflate(u8) {
+  if (typeof DecompressionStream === 'undefined') return null;
+  try {
+    const ds = new DecompressionStream('deflate');
+    const wr = ds.writable.getWriter();
+    wr.write(u8).catch(() => {}); wr.close().catch(() => {});
+    const rd = ds.readable.getReader();
+    const chunks = []; let total = 0;
+    try {
+      for (;;) {
+        const { done, value } = await rd.read();
+        if (done) break;
+        chunks.push(value); total += value.length;
+        if (total > 400e6) break;
+      }
+    } catch (e) { /* trailing data after the stream: keep what we got */ }
+    const out = new Uint8Array(total); let p = 0;
+    for (const c of chunks) { out.set(c, p); p += c.length; }
+    return out;
+  } catch (e) { return null; }
+}
+function parseRLF(u8) {
+  const bad = m => { throw new Error(m); };
+  const i = u8.indexOf(0x1a);
+  if (i < 0 || i > 2000) bad('not an ArtCAM relief');
+  if (u8[i] !== 0x1a || u8[i + 3] !== 0 || u8[i + 4] !== 1) bad('unknown header');
+  let p = i + 5;
+  const W = (u8[p] << 8) | u8[p + 1], H = (u8[p + 2] << 8) | u8[p + 3]; p += 4;
+  if (!(W > 0 && H > 0) || u8[p] !== 1) bad('unknown header');
+  p++;
+  const dec = new TextDecoder('latin1'), nums = [];
+  for (let k = 0; k < 5; k++) {
+    const n = u8[p]; nums.push(parseFloat(dec.decode(u8.subarray(p + 1, p + 1 + n)))); p += 1 + n;
+  }
+  if (u8[p] !== 1 || u8[p + 1] !== 2 || u8[p + 2] !== 0 || u8[p + 3] !== 0x22) bad('unknown header');
+  p += 4;
+  for (let k = 0; k < 3; k++) p += 1 + u8[p];
+  [0, 1, 0, 0, 0, 0].forEach((v, k) => { if (u8[p + 1 + k] !== v) bad('unknown header'); });
+  p += 7;
+  const [wmm, hmm, , , upm] = nums;
+  if (!(upm > 0) || !(wmm > 0) || !(hmm > 0)) bad('unknown header');
+  const N = W * H, segs = [];
+  let n = 0, lits = 0;
+  while (n < N) {                       // run tokens: top bit = literal run, low 7 bits = count (0x7f continues)
+    if (p >= u8.length) bad('truncated file');
+    let b = u8[p++];
+    const lit = (b & 0x80) !== 0;
+    let cnt = b & 0x7f;
+    // 0x7f means "more follows", but only if the next byte has the same mode bit
+    // (an exact multiple of 127 has no closing byte; the next token starts right away)
+    while ((b & 0x7f) === 0x7f && p < u8.length && ((u8[p] & 0x80) !== 0) === lit) { b = u8[p++]; cnt += b & 0x7f; }
+    if (cnt === 0) bad('bad run');
+    segs.push(lit ? -cnt : cnt); n += cnt; if (lit) lits += cnt;
+  }
+  if (n !== N) bad('size mismatch');
+  {  // ArtCAM 2018+ puts a 32-character key string (UTF-16) before the height data, which is then scrambled
+    const t = u8[p] === 0 ? p + 1 : p;
+    let hex = t + 64 <= u8.length;
+    for (let k = 0; hex && k < 64; k += 2) {
+      const c = u8[t + k];
+      if (u8[t + k + 1] !== 0 || !((c >= 48 && c <= 57) || (c >= 97 && c <= 102))) hex = false;
+    }
+    if (hex) { const e = new Error('protected'); e.code = 'PROTECTED'; throw e; }
+  }
+  let start = p;
+  if (u8[p] === 0 && p + 1 + lits * 2 <= u8.length) start = p + 1;   // end-of-runs marker
+  if (start + lits * 2 > u8.length) bad('truncated file');
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const out = new Float32Array(N), inv = 1 / upm;
+  let q = 0, o = start;
+  for (const sg of segs) {
+    if (sg < 0) { for (let j = -sg; j > 0; j--) { out[q++] = dv.getInt16(o, true) * inv; o += 2; } }
+    else q += sg;
+  }
+  return { W, H, wmm, hmm, data: out };
+}
+let manualSources = [], manualName = '';
+async function loadRLF(buf, name, file) {
+  const raw = new Uint8Array(buf);
+  try {
+    const r = parseRLF(raw);
+    buildHeightmap(r.W, r.H, r.data, name, { wmm: r.wmm, hmm: r.hmm });
+    return;
+  } catch (e) {
+    if (e.code === 'PROTECTED') {
+      if (file) await showFiles([file]);
+      toast('This relief was saved by ArtCAM 2018 or newer, which stores the height data in a protected form this viewer cannot read. The preview from the file is shown. For 3D, export it as STL or a grayscale image from ArtCAM.', 10000);
+      return;
+    }
+    if (e.message === 'This file has no usable height values.') throw e;
+  }
+  const sources = [{ label: 'File as-is (' + fmtBytes(raw.length) + ')', head: new Uint8Array(0), body: raw }];
+  for (const pos of findZlib(raw)) {
+    const out = await inflate(raw.subarray(pos));
+    if (out && out.length > 1024)
+      sources.push({ label: 'Decompressed block at byte ' + pos + ' (' + fmtBytes(out.length) + ')', head: raw.subarray(0, pos), body: out });
+  }
+  for (const s of sources) {
+    const g = guessGrid(s.head, s.body);
+    if (g) { buildHeightmap(g.w, g.h, g.data, name); return; }
+  }
+  openManual(name, sources);
+}
+function openManual(name, sources) {
+  manualSources = sources; manualName = name;
+  const sel = $('#msrc'); sel.innerHTML = '';
+  sources.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.label; sel.appendChild(o); });
+  const head = new TextDecoder('latin1').decode(sources[0].body.subarray(0, 700));
+  const dm = head.match(/(\d+)\s+pixels wide by\s+(\d+)\s+pixels high/);
+  const mm = head.match(/relief is\s+([\d.]+)mm wide by\s+([\d.]+)mm high/);
+  const hm = head.match(/Maximum height in the relief is\s+([\d.]+)mm/);
+  if (dm) {
+    $('#mw').value = dm[1]; $('#mh2').value = dm[2];
+    $('#mhint').textContent = 'ArtCAM relief: ' + dm[1] + ' \u00d7 ' + dm[2] + ' points'
+      + (mm ? ', ' + mm[1] + ' \u00d7 ' + mm[2] + ' mm' : '') + (hm ? ', up to ' + hm[1] + ' mm high' : '')
+      + '. This file uses a variant that could not be decoded automatically. '
+      + 'Export the relief from ArtCAM as STL or a grayscale image and open that instead.';
+    toast('This .rlf variant could not be decoded. Open an STL or grayscale export instead.', 7000);
+  } else {
+    toast('Could not detect this file\u2019s layout automatically. Enter it manually.');
+  }
+  $('#manual').hidden = false;
+}
+$('#mcancel').onclick = () => { $('#manual').hidden = true; };
+$('#mload').onclick = () => {
+  try {
+    const s = manualSources[+$('#msrc').value];
+    const w = +$('#mw').value, h = +$('#mh2').value, off = +$('#mo').value, kind = $('#mt').value;
+    if (!(w >= 2 && h >= 2)) throw new Error('Width and height must be at least 2.');
+    if (off + w * h * SZ[kind] > s.body.length) throw new Error('Not enough data for that size. Check width, height and value type.');
+    const d = readTyped(s.body, off, w * h, kind);
+    buildHeightmap(w, h, d, manualName);
+    $('#manual').hidden = true;
+  } catch (e) { toast(e.message); }
+};
+
+/* ---------- materials ---------- */
+const MATERIALS = {
+  pine:      { name: 'Pine',       color: [0.86, 0.70, 0.48], rough: 0.80, metal: 0.00, opacity: 1,    grain: 'wood' },
+  oak:       { name: 'Oak',        color: [0.72, 0.54, 0.33], rough: 0.78, metal: 0.00, opacity: 1,    grain: 'wood' },
+  walnut:    { name: 'Walnut',     color: [0.40, 0.28, 0.20], rough: 0.75, metal: 0.00, opacity: 1,    grain: 'wood' },
+  plywood:   { name: 'Plywood',    color: [0.84, 0.69, 0.48], rough: 0.80, metal: 0.00, opacity: 1,    grain: 'wood' },
+  mdf:       { name: 'MDF',        color: [0.70, 0.58, 0.42], rough: 0.90, metal: 0.00, opacity: 1,    grain: 'fine' },
+  foam:      { name: 'Foam / HDU', color: [0.90, 0.88, 0.80], rough: 0.95, metal: 0.00, opacity: 1,    grain: 'fine' },
+  acrylic:   { name: 'Acrylic',    color: [0.55, 0.82, 0.93], rough: 0.20, metal: 0.00, opacity: 0.72, grain: 'none' },
+  aluminium: { name: 'Aluminium',  color: [0.76, 0.78, 0.81], rough: 0.45, metal: 0.30, opacity: 1,    grain: 'brushed' },
+  brass:     { name: 'Brass',      color: [0.82, 0.66, 0.30], rough: 0.45, metal: 0.30, opacity: 1,    grain: 'brushed' }
+};
+function hash2(ix, iy) {
+  let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+function vnoise(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy), b = hash2(ix + 1, iy), c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
+function grainMul(kind, x, y) {          // x, y in mm; returns a brightness multiplier around 1
+  switch (kind) {
+    case 'wood': return 0.86 + 0.20 * vnoise(x * 0.012, y * 0.45) + 0.05 * (vnoise(x * 0.6, y * 0.6) - 0.5);
+    case 'fine': return 0.93 + 0.12 * vnoise(x * 0.9, y * 0.9);
+    case 'brushed': return 0.95 + 0.08 * vnoise(x * 0.04, y * 3.0);
+    default: return 1;
+  }
+}
+function fillMaterialSelect(sel, extra) {
+  sel.innerHTML = '';
+  for (const [v, t] of extra) { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); }
+  for (const id of Object.keys(MATERIALS)) { const o = document.createElement('option'); o.value = id; o.textContent = MATERIALS[id].name; sel.appendChild(o); }
+}
+fillMaterialSelect($('#look'), [['height', 'Height colours'], ['neutral', 'Neutral grey']]);
+fillMaterialSelect($('#gmat'), []);
+
+let viewMmPerUnit = 1;
+function applyLook() {
+  if (!mesh) return;
+  const mode = $('#look').value, geo = mesh.geometry, mat = mesh.material;
+  const pos = geo.attributes.position.array, col = geo.attributes.color.array, n = pos.length / 3;
+  let zmax = 1e-9;
+  for (let i = 0; i < n; i++) if (pos[i * 3 + 2] > zmax) zmax = pos[i * 3 + 2];
+  if (mode === 'neutral') {
+    mat.vertexColors = false; mat.color.setHex(0xd9dde0);
+    mat.roughness = 0.72; mat.metalness = 0.05; mat.opacity = 1; mat.transparent = false;
+  } else if (mode === 'height' || !MATERIALS[mode]) {
+    for (let i = 0; i < n; i++) ramp(pos[i * 3 + 2] / zmax, col, i * 3);
+    mat.vertexColors = true; mat.color.setHex(0xffffff);
+    mat.roughness = 0.72; mat.metalness = 0.05; mat.opacity = 1; mat.transparent = false;
+  } else {
+    const m = MATERIALS[mode];
+    for (let i = 0; i < n; i++) {
+      const f = grainMul(m.grain, pos[i * 3] * viewMmPerUnit, pos[i * 3 + 1] * viewMmPerUnit) * (0.84 + 0.16 * pos[i * 3 + 2] / zmax);
+      col[i * 3] = Math.min(1, m.color[0] * f); col[i * 3 + 1] = Math.min(1, m.color[1] * f); col[i * 3 + 2] = Math.min(1, m.color[2] * f);
+    }
+    mat.vertexColors = true; mat.color.setHex(0xffffff);
+    mat.roughness = m.rough; mat.metalness = m.metal; mat.opacity = m.opacity; mat.transparent = m.opacity < 1;
+  }
+  geo.attributes.color.needsUpdate = true; mat.needsUpdate = true; dirty = true;
+}
+
+/* ---------- G-code parser ---------- */
+function parseGcode(text, rapidMmMin) {
+  rapidMmMin = rapidMmMin > 0 ? rapidMmMin : 5000;
+  const lines = text.split(/\r?\n/);
+  const P = [], K = [], C = [], LN = [], FD = [], warn = new Set();
+  let x = NaN, y = NaN, z = NaN;
+  let abs = true, absArc = false, scale = 1, motion = 0, feed = 0, t = 0, plane = 17;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  const clo = [Infinity, Infinity, Infinity], chi = [-Infinity, -Infinity, -Infinity];
+  const grow = (a, b, px, py, pz) => {
+    if (px < a[0]) a[0] = px; if (py < a[1]) a[1] = py; if (pz < a[2]) a[2] = pz;
+    if (px > b[0]) b[0] = px; if (py > b[1]) b[1] = py; if (pz > b[2]) b[2] = pz;
+  };
+  const seg = (x0, y0, z0, x1, y1, z1, kind, ln) => {
+    const len = Math.hypot(x1 - x0, y1 - y0, z1 - z0);
+    if (!(len > 1e-9)) return;
+    const rate = kind ? (feed > 0 ? feed : 1000) : rapidMmMin;
+    t += len / rate * 60;
+    P.push(x0, y0, z0, x1, y1, z1); K.push(kind); C.push(t); LN.push(ln); FD.push(rate);
+    grow(lo, hi, x0, y0, z0); grow(lo, hi, x1, y1, z1);
+    if (kind) { grow(clo, chi, x0, y0, z0); grow(clo, chi, x1, y1, z1); }
+  };
+  const re = /([A-Za-z])\s*([-+]?(?:\d+\.?\d*|\.\d+))/g;
+  for (let li = 0; li < lines.length; li++) {
+    let ln = lines[li];
+    if (ln.indexOf('(') >= 0) ln = ln.replace(/\([^)]*\)/g, '');
+    const sc = ln.indexOf(';'); if (sc >= 0) ln = ln.slice(0, sc);
+    ln = ln.trim();
+    if (!ln || ln[0] === '%') continue;
+    const gs = [], v = {};
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(ln))) {
+      const c = m[1].toUpperCase(), n = parseFloat(m[2]);
+      if (c === 'G') gs.push(n); else if (c !== 'M') v[c] = n;
+    }
+    let skip = false;
+    for (const g of gs) {
+      if (g === 0 || g === 1 || g === 2 || g === 3) motion = g;
+      else if (g === 4) { if (v.P > 0) t += Math.min(v.P, 600); }
+      else if (g === 17) plane = 17;
+      else if (g === 18 || g === 19) { plane = g; warn.add('arcs outside the XY plane (G18/G19)'); }
+      else if (g === 20) scale = 25.4;
+      else if (g === 21) scale = 1;
+      else if (g === 90) abs = true;
+      else if (g === 91) abs = false;
+      else if (g === 90.1) absArc = true;
+      else if (g === 91.1) absArc = false;
+      else if (g === 53) skip = true;
+      else if (g === 28 || g === 30) { skip = true; warn.add('G28/G30 homing moves'); }
+      else if (g === 73 || (g >= 81 && g <= 89)) { skip = true; warn.add('canned drilling cycles (G' + g + ')'); }
+      else if (g === 92) warn.add('G92 coordinate offsets');
+    }
+    if (v.F !== undefined) feed = v.F * scale;
+    const arcWords = motion >= 2 && (v.I !== undefined || v.J !== undefined || v.R !== undefined);
+    if (skip || !(v.X !== undefined || v.Y !== undefined || v.Z !== undefined || arcWords)) continue;
+    const rx = v.X === undefined ? NaN : (abs ? v.X * scale : (isNaN(x) ? 0 : x) + v.X * scale);
+    const ry = v.Y === undefined ? NaN : (abs ? v.Y * scale : (isNaN(y) ? 0 : y) + v.Y * scale);
+    const rz = v.Z === undefined ? NaN : (abs ? v.Z * scale : (isNaN(z) ? 0 : z) + v.Z * scale);
+    const sx = isNaN(x) ? (isNaN(rx) ? 0 : rx) : x;
+    const sy = isNaN(y) ? (isNaN(ry) ? 0 : ry) : y;
+    const sz = isNaN(z) ? (isNaN(rz) ? 0 : rz) : z;
+    const nx = isNaN(rx) ? sx : rx, ny = isNaN(ry) ? sy : ry, nz = isNaN(rz) ? sz : rz;
+    const kind = motion === 0 ? 0 : 1;
+    let arc = motion >= 2 && plane === 17;
+    let cx = 0, cy = 0;
+    if (arc) {
+      if (v.I !== undefined || v.J !== undefined) {
+        const ci = (v.I || 0) * scale, cj = (v.J || 0) * scale;
+        cx = absArc ? ci : sx + ci; cy = absArc ? cj : sy + cj;
+      } else if (v.R !== undefined) {
+        const r = Math.abs(v.R * scale), dx = nx - sx, dy = ny - sy, d = Math.hypot(dx, dy);
+        if (d < 1e-9) arc = false;
+        else {
+          const h = Math.sqrt(Math.max(0, r * r - d * d / 4));
+          const left = (motion === 3) === (v.R > 0);
+          cx = (sx + nx) / 2 + (left ? -dy : dy) / d * h;
+          cy = (sy + ny) / 2 + (left ? dx : -dx) / d * h;
+        }
+      } else arc = false;
+    }
+    if (arc) {
+      const r0 = Math.hypot(sx - cx, sy - cy), r1 = Math.hypot(nx - cx, ny - cy);
+      if (r0 < 1e-9) arc = false;
+      else {
+        const a0 = Math.atan2(sy - cy, sx - cx), a1 = Math.atan2(ny - cy, nx - cx);
+        let sweep = a1 - a0;
+        if (motion === 3) { if (sweep <= 1e-9) sweep += 2 * Math.PI; }
+        else if (sweep >= -1e-9) sweep -= 2 * Math.PI;
+        const tol = 0.02, stepA = r0 > tol ? 2 * Math.acos(1 - tol / r0) : Math.PI / 2;
+        const n = Math.min(2000, Math.max(1, Math.ceil(Math.abs(sweep) / stepA)));
+        let px = sx, py = sy, pz = sz;
+        for (let k = 1; k <= n; k++) {
+          let qx, qy, qz;
+          if (k === n) { qx = nx; qy = ny; qz = nz; }
+          else {
+            const a = a0 + sweep * k / n, rr = r0 + (r1 - r0) * k / n;
+            qx = cx + rr * Math.cos(a); qy = cy + rr * Math.sin(a); qz = sz + (nz - sz) * k / n;
+          }
+          seg(px, py, pz, qx, qy, qz, kind, li + 1);
+          px = qx; py = qy; pz = qz;
+        }
+      }
+    }
+    if (!arc) seg(sx, sy, sz, nx, ny, nz, kind, li + 1);
+    x = nx; y = ny; z = nz;
+  }
+  const n = K.length;
+  return {
+    n, pts: Float32Array.from(P), kind: Uint8Array.from(K), cum: Float64Array.from(C),
+    lineNo: Int32Array.from(LN), feed: Float32Array.from(FD), total: n ? C[n - 1] : 0,
+    bounds: { min: lo, max: hi }, cut: chi[0] >= clo[0] ? { min: clo, max: chi } : null,
+    warnings: [...warn], lines: lines.length
+  };
+}
+function looksLikeGcode(sample) {
+  return /(^|\n)\s*(N\d+\s*)?[GM]\d+/i.test(sample) && /[XYZ]\s*-?\.?\d/i.test(sample);
+}
+const GCODE_EXT = ['nc', 'gcode', 'ngc', 'tap', 'cnc', 'gc', 'mpf', 'eia', 'ncc', 'anc', 'txt'];
+function clock(sec) {
+  const s = Math.round(sec), m = Math.floor(s / 60), ss = s % 60;
+  return m + ':' + (ss < 10 ? '0' : '') + ss;
+}
+function fmtTime(sec) {
+  const s = Math.round(sec), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? h + ' h ' + m + ' min' : m ? m + ' min ' + (s % 60) + ' s' : s + ' s';
+}
+
+/* ---------- stock removal simulation (height field) ---------- */
+function createStockSim(cfg) {
+  const cell = Math.max(0.02, Math.sqrt(cfg.W * cfg.H / cfg.cap));
+  const nx = Math.max(2, Math.round(cfg.W / cell) + 1), ny = Math.max(2, Math.round(cfg.H / cell) + 1);
+  const cw = cfg.W / (nx - 1), ch = cfg.H / (ny - 1);
+  const g = new Float32Array(nx * ny).fill(cfg.T);
+  const R = cfg.tool.d / 2, type = cfg.tool.type;
+  const vk = type === 'vee' ? 1 / Math.tan(cfg.tool.angle * Math.PI / 360) : 0;
+  const ox = cfg.ox, oy = cfg.oy, T = cfg.T, zb = cfg.zb, R2 = R * R;
+  let di0 = nx, di1 = -1, dj0 = ny, dj1 = -1;
+  const sim = {
+    nx, ny, cw, ch, g, ox, oy, T, zb, R, type, vk, cell: Math.max(cw, ch),
+    spacing: Math.max(Math.min(cw, ch), R / 6), seg: 0, step: 0,
+    stamp(px, py, pz) {
+      const hz = pz - zb;
+      if (hz >= T) return;
+      const fx = (px - ox) / cw, fy = (py - oy) / ch;
+      const j0 = Math.max(0, Math.ceil(fy - R / ch)), j1 = Math.min(ny - 1, Math.floor(fy + R / ch));
+      if (j1 < j0) return;
+      let any = false;
+      for (let j = j0; j <= j1; j++) {
+        const dy = (j - fy) * ch, rem = R2 - dy * dy;
+        if (rem < 0) continue;
+        const hw = Math.sqrt(rem) / cw;
+        const i0 = Math.max(0, Math.ceil(fx - hw)), i1 = Math.min(nx - 1, Math.floor(fx + hw));
+        const row = j * nx;
+        for (let i = i0; i <= i1; i++) {
+          const dx = (i - fx) * cw, d2 = dx * dx + dy * dy;
+          let h;
+          if (type === 'flat') h = hz;
+          else if (type === 'ball') h = hz + R - Math.sqrt(Math.max(0, R2 - d2));
+          else h = hz + Math.sqrt(d2) * vk;
+          if (h < 0) h = 0;
+          if (h < g[row + i]) {
+            g[row + i] = h; any = true;
+            if (i < di0) di0 = i; if (i > di1) di1 = i;
+          }
+        }
+        if (any) { if (j < dj0) dj0 = j; if (j > dj1) dj1 = j; }
+      }
+    },
+    takeDirty() {
+      if (di1 < 0) return null;
+      const r = { i0: di0, i1: di1, j0: dj0, j1: dj1 };
+      di0 = nx; di1 = -1; dj0 = ny; dj1 = -1;
+      return r;
+    },
+    markAll() { di0 = 0; di1 = nx - 1; dj0 = 0; dj1 = ny - 1; },
+    reset() { g.fill(T); sim.seg = 0; sim.step = 0; sim.markAll(); }
+  };
+  return sim;
+}
+function segSteps(prog, sim) {
+  const m = new Int32Array(prog.n), P = prog.pts;
+  for (let s = 0; s < prog.n; s++) {
+    const o = s * 6, d = Math.hypot(P[o + 3] - P[o], P[o + 4] - P[o + 1]);
+    m[s] = Math.min(100000, Math.max(1, Math.ceil(d / sim.spacing)));
+  }
+  return m;
+}
+function simAdvance(sim, prog, m, tseg, tstep, budget) {
+  const t0 = performance.now(), P = prog.pts;
+  for (;;) {
+    const s = sim.seg;
+    if (s > tseg || (s === tseg && sim.step >= tstep) || s >= prog.n) return true;
+    const ms = m[s], to = s < tseg ? ms : Math.min(tstep, ms);
+    if (sim.step < to) {
+      const o = s * 6, x0 = P[o], y0 = P[o + 1], z0 = P[o + 2];
+      const dx = P[o + 3] - x0, dy = P[o + 4] - y0, dz = P[o + 5] - z0;
+      for (let k = sim.step + 1; k <= to; k++) { const f = k / ms; sim.stamp(x0 + dx * f, y0 + dy * f, z0 + dz * f); }
+      sim.step = to;
+    }
+    if (sim.step >= ms && s < tseg) { sim.seg = s + 1; sim.step = 0; }
+    else if (s === tseg) return true;
+    if (budget && performance.now() - t0 > budget) return false;
+  }
+}
+function locate(prog, t) {                // time -> segment index and fraction
+  const n = prog.n;
+  if (t <= 0) return { s: 0, f: 0 };
+  if (t >= prog.total) return { s: n - 1, f: 1 };
+  let lo = 0, hi = n - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (prog.cum[mid] >= t) hi = mid; else lo = mid + 1; }
+  const t0 = lo > 0 ? prog.cum[lo - 1] : 0;
+  return { s: lo, f: Math.min(1, Math.max(0, (t - t0) / ((prog.cum[lo] - t0) || 1))) };
+}
+
+/* ---------- toolpath scene ---------- */
+const simGroup = new THREE.Group();
+simGroup.visible = false;
+scene.add(simGroup);
+const gc = { text: '', name: '', prog: null, sim: null, m: null, cfg: null, t: 0, playing: false, speed: 60, last: 0,
+  needSync: false, lag: false, stock: null, walls: null, tool: null, done: null, ghost: null, lastUi: 0, showStock: true, showPath: true };
+let mode = 'view', reliefFit = { radius: 70, tz: 0 };
+
+function clearSim() {
+  for (const c of [...simGroup.children]) {
+    simGroup.remove(c);
+    c.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  }
+  gc.stock = gc.walls = gc.tool = gc.done = gc.ghost = null;
+}
+function readCfg() {
+  const num = (id, d) => { const v = parseFloat($(id).value); return v > 0 ? v : d; };
+  const ts = $('#gtool').value;
+  const W = num('#gw', 100), H = num('#gh', 100), T = num('#gthk', 10);
+  const center = $('#gorg').value === 'center';
+  return {
+    W, H, T, crop: $('#garea').value === 'crop', cap: +$('#gq').value || 300000, rapid: num('#grapid', 5000), mat: $('#gmat').value,
+    ox: center ? -W / 2 : 0, oy: center ? -H / 2 : 0, zb: $('#gz').value === 'top' ? -T : 0,
+    tool: { type: ts === 'ball' ? 'ball' : ts === 'flat' ? 'flat' : 'vee', d: num('#gdia', 6), angle: ts === 'v60' ? 60 : 90 }
+  };
+}
+function stockDefaults(prog) {
+  const cb = prog.cut || prog.bounds, R = (parseFloat($('#gdia').value) || 6) / 2;
+  const minZ = cb.min[2], maxZ = cb.max[2];
+  const zero = minZ >= -1e-6 ? 'bottom' : 'top';
+  const centered = cb.min[0] < -1e-6 || cb.min[1] < -1e-6;
+  let W, H;
+  if (lastGrid && lastGrid.phys) { W = lastGrid.phys.wmm; H = lastGrid.phys.hmm; }
+  else if (centered) { W = 2 * Math.max(Math.abs(cb.min[0]), Math.abs(cb.max[0])) + 2 * R; H = 2 * Math.max(Math.abs(cb.min[1]), Math.abs(cb.max[1])) + 2 * R; }
+  else { W = cb.max[0] + R; H = cb.max[1] + R; }
+  let T;
+  if (zero === 'top') T = Math.ceil(Math.abs(minZ)) + 2;
+  else T = Math.ceil(lastGrid && lastGrid.phys && info.max > 0 ? Math.max(info.max, maxZ) : maxZ);
+  T = Math.max(T, 2);
+  return { zero, org: centered ? 'center' : 'corner', W: Math.ceil(W * 10) / 10, H: Math.ceil(H * 10) / 10, T };
+}
+function setStockInputs(d) {
+  $('#gz').value = d.zero; $('#gorg').value = d.org;
+  $('#gw').value = d.W; $('#gh').value = d.H; $('#gthk').value = d.T;
+}
+function stockColor(sim, mat, col, i0, i1, j0, j1) {
+  const { nx, g, ox, oy, cw, ch, T } = sim, b = mat.color;
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const idx = j * nx + i, gh = g[idx];
+    let f = grainMul(mat.grain, ox + i * cw, oy + j * ch);
+    if (gh < T - 1e-4) f *= 0.60 + 0.40 * (gh / T);
+    col[idx * 3] = Math.min(1, b[0] * f); col[idx * 3 + 1] = Math.min(1, b[1] * f); col[idx * 3 + 2] = Math.min(1, b[2] * f);
+  }
+}
+function stockNormals(sim, nor, i0, i1, j0, j1) {
+  const { nx, ny, g, cw, ch } = sim;
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const il = Math.max(0, i - 1), ir = Math.min(nx - 1, i + 1), jl = Math.max(0, j - 1), jr = Math.min(ny - 1, j + 1);
+    const dzx = (g[j * nx + ir] - g[j * nx + il]) / ((ir - il) * cw);
+    const dzy = (g[jr * nx + i] - g[jl * nx + i]) / ((jr - jl) * ch);
+    const len = Math.hypot(dzx, dzy, 1), k = (j * nx + i) * 3;
+    nor[k] = -dzx / len; nor[k + 1] = -dzy / len; nor[k + 2] = 1 / len;
+  }
+}
+function buildWalls(sim, mat) {
+  const { nx, ny, cw, ch, g, ox, oy, zb } = sim;
+  const lists = [[], [], [], []];
+  for (let i = 0; i < nx; i++) { lists[0].push(i); lists[1].push((ny - 1) * nx + i); }
+  for (let j = 0; j < ny; j++) { lists[2].push(j * nx); lists[3].push(j * nx + nx - 1); }
+  const nrm = [[0, -1, 0], [0, 1, 0], [-1, 0, 0], [1, 0, 0]];
+  const nv = 2 * (2 * nx + 2 * ny);
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), col = new Float32Array(nv * 3);
+  const idx = [], tops = [];
+  let base = 0;
+  lists.forEach((lst, si) => {
+    for (let k = 0; k < lst.length; k++) {
+      const gi = lst[k], i = gi % nx, j = (gi / nx) | 0, x = ox + i * cw, y = oy + j * ch;
+      const vt = base + 2 * k, vb = vt + 1;
+      pos[vt * 3] = x; pos[vt * 3 + 1] = y; pos[vt * 3 + 2] = g[gi] + zb;
+      pos[vb * 3] = x; pos[vb * 3 + 1] = y; pos[vb * 3 + 2] = zb;
+      for (const v of [vt, vb]) {
+        nor[v * 3] = nrm[si][0]; nor[v * 3 + 1] = nrm[si][1]; nor[v * 3 + 2] = nrm[si][2];
+        col[v * 3] = mat.color[0] * 0.78; col[v * 3 + 1] = mat.color[1] * 0.78; col[v * 3 + 2] = mat.color[2] * 0.78;
+      }
+      tops.push(vt, gi);
+      if (k < lst.length - 1) idx.push(vt, vb, vt + 2, vb, vb + 2, vt + 2);
+    }
+    base += 2 * lst.length;
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(new THREE.BufferAttribute(Uint32Array.from(idx), 1));
+  return { geo, pos, tops: Int32Array.from(tops) };
+}
+function buildToolMarker(cfg) {
+  const R = cfg.tool.d / 2, len = Math.max(20, cfg.tool.d * 4), grp = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.4, roughness: 0.4, transparent: true, opacity: 0.92 });
+  const add = geo => grp.add(new THREE.Mesh(geo, mat));
+  if (cfg.tool.type === 'vee') {
+    const hv = R / Math.tan(cfg.tool.angle * Math.PI / 360);
+    const cone = new THREE.CylinderGeometry(R, 0.001, hv, 24); cone.rotateX(Math.PI / 2); cone.translate(0, 0, hv / 2); add(cone);
+    const sh = new THREE.CylinderGeometry(R, R, len, 24); sh.rotateX(Math.PI / 2); sh.translate(0, 0, hv + len / 2); add(sh);
+  } else {
+    const off = cfg.tool.type === 'ball' ? R : 0;
+    const sh = new THREE.CylinderGeometry(R, R, len, 24); sh.rotateX(Math.PI / 2); sh.translate(0, 0, off + len / 2); add(sh);
+    if (off) { const sp = new THREE.SphereGeometry(R, 24, 14); sp.translate(0, 0, R); add(sp); }
+  }
+  return grp;
+}
+function buildGcodeScene() {
+  const cfg = readCfg();
+  const prog = parseGcode(gc.text, cfg.rapid);
+  gc.cfg = cfg; gc.prog = prog;
+  clearSim();
+  if (!prog.n) { simGroup.visible = false; return; }
+  let reg = { ox: cfg.ox, oy: cfg.oy, W: cfg.W, H: cfg.H };
+  if (cfg.crop && prog.cut) {              // simulate only around the cuts: same cell budget, finer detail
+    const r = cfg.tool.d / 2 + 1, c = prog.cut;
+    const x0 = Math.max(cfg.ox, c.min[0] - r), x1 = Math.min(cfg.ox + cfg.W, c.max[0] + r);
+    const y0 = Math.max(cfg.oy, c.min[1] - r), y1 = Math.min(cfg.oy + cfg.H, c.max[1] + r);
+    if (x1 - x0 > 1 && y1 - y0 > 1) reg = { ox: x0, oy: y0, W: x1 - x0, H: y1 - y0 };
+  }
+  gc.reg = reg;
+  const k = SIZE / Math.max(reg.W, reg.H), mat = MATERIALS[cfg.mat] || MATERIALS.pine;
+  simGroup.scale.setScalar(k);
+  simGroup.position.set(-(reg.ox + reg.W / 2) * k, -(reg.oy + reg.H / 2) * k, -cfg.zb * k);
+  // toolpath lines (ghost = whole path, done = executed part)
+  const colors = new Float32Array(prog.n * 6);
+  for (let s = 0; s < prog.n; s++) {
+    const c = prog.kind[s] ? [0.89, 0.70, 0.36] : [0.45, 0.66, 0.80];
+    for (let v = 0; v < 2; v++) { colors[s * 6 + v * 3] = c[0]; colors[s * 6 + v * 3 + 1] = c[1]; colors[s * 6 + v * 3 + 2] = c[2]; }
+  }
+  const lg = new THREE.BufferGeometry();
+  const pa = new THREE.BufferAttribute(prog.pts, 3), ca = new THREE.BufferAttribute(colors, 3);
+  lg.setAttribute('position', pa); lg.setAttribute('color', ca);
+  gc.ghost = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false }));
+  const dg = new THREE.BufferGeometry();
+  dg.setAttribute('position', pa); dg.setAttribute('color', ca); dg.setDrawRange(0, 0);
+  gc.done = new THREE.LineSegments(dg, new THREE.LineBasicMaterial({ vertexColors: true }));
+  gc.ghost.frustumCulled = false; gc.done.frustumCulled = false;
+  // stock
+  const sim = createStockSim(Object.assign({}, cfg, { W: reg.W, H: reg.H, ox: reg.ox, oy: reg.oy }));
+  gc.sim = sim; gc.m = segSteps(prog, sim);
+  const { nx, ny, g } = sim, nv = nx * ny;
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), col = new Float32Array(nv * 3);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const q = (j * nx + i) * 3;
+    pos[q] = sim.ox + i * sim.cw; pos[q + 1] = sim.oy + j * sim.ch; pos[q + 2] = g[j * nx + i] + cfg.zb; nor[q + 2] = 1;
+  }
+  stockColor(sim, mat, col, 0, nx - 1, 0, ny - 1);
+  const idx = new Uint32Array((nx - 1) * (ny - 1) * 6);
+  let p = 0;
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1;
+    idx[p++] = a; idx[p++] = b; idx[p++] = c; idx[p++] = b; idx[p++] = d; idx[p++] = c;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  const smat = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: mat.rough, metalness: mat.metal, side: THREE.DoubleSide,
+    transparent: mat.opacity < 1, opacity: mat.opacity
+  });
+  gc.stock = new THREE.Mesh(geo, smat); gc.stock.frustumCulled = false;
+  const w = buildWalls(sim, mat);
+  gc.walls = new THREE.Mesh(w.geo, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: mat.rough, metalness: mat.metal, side: THREE.DoubleSide,
+    transparent: mat.opacity < 1, opacity: mat.opacity
+  }));
+  gc.walls.frustumCulled = false; gc.wallData = w;
+  gc.tool = buildToolMarker(cfg);
+  simGroup.add(gc.stock); simGroup.add(gc.walls); simGroup.add(gc.ghost); simGroup.add(gc.done); simGroup.add(gc.tool);
+  gc.stock.visible = gc.walls.visible = gc.showStock;
+  gc.ghost.visible = gc.done.visible = gc.showPath;
+  gc.t = 0; gc.playing = false; gc.needSync = true; gc.lag = false; gc.last = 0;
+  setPlayLabel(); $('#gtime').value = 0;
+  // default speed: whole job in about 30 s
+  const opts = [...$('#gspeed').options].map(o => +o.value), want = prog.total / 30;
+  gc.speed = opts.find(v => v >= want) || opts[opts.length - 1];
+  $('#gspeed').value = gc.speed;
+  updateStockSummary();
+  $('#gBody').hidden = false;
+  const detail = sim.cell > cfg.tool.d / 3 ? ' · low detail (' + sim.cell.toFixed(2) + ' mm cells): raise Simulation detail or use Toolpath area only' : ' · ' + sim.cell.toFixed(2) + ' mm cells';
+  $('#gInfo').textContent = gc.name + ' · ' + fmtTime(prog.total) + ' · ' + prog.n.toLocaleString() + ' moves' + detail;
+}
+function safeBuild() {
+  try { buildGcodeScene(); return true; }
+  catch (e) {
+    const sel = $('#gq'), opts = [...sel.options].map(o => o.value), i = opts.indexOf(sel.value);
+    if (i > 0) { sel.value = opts[i - 1]; toast('Not enough memory for that detail level. Using a lower one.', 6000); return safeBuild(); }
+    toast('Could not build the simulation. ' + (e.message || ''));
+    return false;
+  }
+}
+function setPlayLabel() {
+  const t = gc.playing ? 'Pause' : 'Play';
+  $('#gplay').textContent = t; $('#fabPlay').textContent = t;
+}
+function updateFab() {
+  const hidden = document.body.classList.contains('hidemenu');
+  $('#fabPlay').hidden = !(hidden && mode === 'tool' && gc.prog && gc.prog.n);
+}
+function updateStockSummary() {
+  const c = gc.cfg; if (!c) return;
+  const tn = c.tool.type === 'ball' ? 'Ball' : c.tool.type === 'flat' ? 'Flat' : 'V ' + c.tool.angle + '°';
+  $('#stockSum').textContent = 'Stock ' + fmtNum(c.W) + ' × ' + fmtNum(c.H) + ' × ' + fmtNum(c.T) + ' mm · ' + (MATERIALS[c.mat] || MATERIALS.pine).name + ' · ' + tn + ' Ø' + fmtNum(c.tool.d);
+}
+function fitStock() {
+  const c = gc.cfg, r = gc.reg || c, k = SIZE / Math.max(r.W, r.H);
+  info.radius = Math.max(Math.hypot(r.W, r.H) * k / 2, 30);
+  orbit.target.set(0, 0, c.T * k / 2);
+  setView('angle');
+}
+function refreshStock() {
+  const sim = gc.sim, dr = sim.takeDirty();
+  if (!dr) return;
+  const geo = gc.stock.geometry, pos = geo.attributes.position, nor = geo.attributes.normal, col = geo.attributes.color;
+  const { nx, ny, g, zb } = sim;
+  for (let j = dr.j0; j <= dr.j1; j++) for (let i = dr.i0; i <= dr.i1; i++) pos.array[(j * nx + i) * 3 + 2] = g[j * nx + i] + zb;
+  const i0 = Math.max(0, dr.i0 - 1), i1 = Math.min(nx - 1, dr.i1 + 1), j0 = Math.max(0, dr.j0 - 1), j1 = Math.min(ny - 1, dr.j1 + 1);
+  stockNormals(sim, nor.array, i0, i1, j0, j1);
+  stockColor(sim, MATERIALS[gc.cfg.mat] || MATERIALS.pine, col.array, i0, i1, j0, j1);
+  const full = (j1 - j0 + 1) * nx > nx * ny * 0.6;
+  for (const a of [pos, nor, col]) {
+    if (full) a.updateRange.count = -1; else { a.updateRange.offset = j0 * nx * 3; a.updateRange.count = (j1 - j0 + 1) * nx * 3; }
+    a.needsUpdate = true;
+  }
+  const wd = gc.wallData, wp = wd.pos;
+  for (let q = 0; q < wd.tops.length; q += 2) wp[wd.tops[q] * 3 + 2] = g[wd.tops[q + 1]] + zb;
+  wd.geo.attributes.position.needsUpdate = true;
+}
+function syncSim() {
+  const prog = gc.prog, sim = gc.sim, loc = locate(prog, gc.t), o = loc.s * 6, P = prog.pts, f = loc.f;
+  gc.tool.position.set(P[o] + (P[o + 3] - P[o]) * f, P[o + 1] + (P[o + 4] - P[o + 1]) * f, P[o + 2] + (P[o + 5] - P[o + 2]) * f);
+  const atEnd = gc.t >= prog.total;
+  gc.done.geometry.setDrawRange(0, (atEnd ? prog.n : loc.s + (f > 0 ? 1 : 0)) * 2);
+  gc.lag = false;
+  if (gc.showStock) {
+    const tseg = atEnd ? prog.n : loc.s, tstep = atEnd ? 0 : Math.min(gc.m[loc.s], Math.floor(f * gc.m[loc.s]));
+    if (sim.seg > tseg || (sim.seg === tseg && sim.step > tstep)) sim.reset();
+    gc.lag = !simAdvance(sim, prog, gc.m, tseg, tstep, 10);
+    refreshStock();
+  }
+  dirty = true;
+}
+function updateReadout(force, now) {
+  if (!force && now - gc.lastUi < 120) return;
+  gc.lastUi = now;
+  const prog = gc.prog, loc = locate(prog, gc.t), z = gc.tool ? gc.tool.position.z : 0;
+  $('#gread').textContent = clock(gc.t) + ' / ' + clock(prog.total) + ' · line ' + prog.lineNo[loc.s] + ' · Z ' + z.toFixed(2) + ' · F ' + Math.round(prog.feed[loc.s]) + (gc.lag ? ' · calculating…' : '');
+  $('#gtime').value = prog.total ? Math.round(gc.t / prog.total * 1000) : 0;
+}
+function simTick(now) {
+  if (mode !== 'tool' || !gc.prog || !gc.prog.n || !gc.sim) return;
+  if (gc.playing) {
+    if (!gc.last) gc.last = now;
+    const dt = Math.min(100, now - gc.last); gc.last = now;
+    gc.t += dt / 1000 * gc.speed;
+    if (gc.t >= gc.prog.total) { gc.t = gc.prog.total; gc.playing = false; setPlayLabel(); }
+    gc.needSync = true;
+  } else gc.last = 0;
+  if (gc.needSync || gc.lag) {
+    gc.needSync = false;
+    syncSim();
+    updateReadout(!gc.playing && !gc.lag, now);
+  }
+}
+
+/* ---------- modes ---------- */
+function setMode(m) {
+  const wasTool = mode === 'tool';
+  mode = m;
+  $('#tabView').setAttribute('aria-pressed', m === 'view'); $('#tabTool').setAttribute('aria-pressed', m === 'tool');
+  $('#viewPane').hidden = m !== 'view'; $('#toolPane').hidden = m !== 'tool';
+  const hasSim = !!(gc.prog && gc.prog.n);
+  if (mesh) mesh.visible = !(m === 'tool' && hasSim);
+  simGroup.visible = m === 'tool' && hasSim;
+  updateFab();
+  if (m === 'tool' && hasSim) { fitStock(); gc.needSync = true; }
+  else if (m === 'view' && wasTool && mesh) { info.radius = reliefFit.radius; orbit.target.set(0, 0, reliefFit.tz); setView('angle'); }
+  dirty = true;
+}
+function loadGcodeText(text, name) {
+  gc.text = text; gc.name = name;
+  const probe = parseGcode(text, 5000);
+  if (!probe.n) { toast('No G-code moves were found in this file.'); return; }
+  setStockInputs(stockDefaults(probe));
+  $('#empty').hidden = true; $('#sheet').hidden = false;
+  if (!safeBuild()) return;
+  mode = 'view'; setMode('tool');
+  if (gc.prog.warnings.length) toast('Skipped: ' + gc.prog.warnings.join(', ') + '. The simulation may differ from the machine.', 8000);
+}
+$('#tabView').onclick = () => setMode('view');
+$('#tabTool').onclick = () => setMode('tool');
+$('#openG').onclick = () => fileInput.click();
+$('#gapply').onclick = () => { if (!gc.text) return; if (!safeBuild()) return; setMode('tool'); fitStock(); $('#stockBox').open = false; };
+$('#gmat').onchange = () => {
+  if (!gc.stock) return;
+  const id = $('#gmat').value, mat = MATERIALS[id] || MATERIALS.pine;
+  gc.cfg.mat = id;
+  for (const mm of [gc.stock.material, gc.walls.material]) {
+    mm.roughness = mat.rough; mm.metalness = mat.metal; mm.opacity = mat.opacity; mm.transparent = mat.opacity < 1; mm.needsUpdate = true;
+  }
+  const wa = gc.walls.geometry.attributes.color, wc = wa.array;
+  for (let v = 0; v < wc.length / 3; v++) { wc[v * 3] = mat.color[0] * 0.78; wc[v * 3 + 1] = mat.color[1] * 0.78; wc[v * 3 + 2] = mat.color[2] * 0.78; }
+  wa.needsUpdate = true;
+  gc.sim.markAll(); refreshStock(); updateStockSummary(); dirty = true;
+};
+$('#gplay').onclick = () => {
+  if (!gc.prog || !gc.prog.n) return;
+  if (!gc.playing && gc.t >= gc.prog.total) { gc.t = 0; gc.sim.reset(); }
+  gc.playing = !gc.playing; gc.last = 0;
+  setPlayLabel();
+};
+$('#greset').onclick = () => {
+  if (!gc.prog || !gc.sim) return;
+  gc.playing = false; gc.t = 0; gc.sim.reset(); gc.needSync = true; setPlayLabel();
+};
+$('#gspeed').onchange = () => { gc.speed = +$('#gspeed').value; };
+$('#gtime').addEventListener('input', () => {
+  if (!gc.prog) return;
+  gc.t = +$('#gtime').value / 1000 * gc.prog.total; gc.needSync = true; gc.last = 0;
+});
+toggle($('#gshowstock'), on => { gc.showStock = on; if (gc.stock) { gc.stock.visible = gc.walls.visible = on; gc.needSync = true; } });
+toggle($('#gshowpath'), on => { gc.showPath = on; if (gc.ghost) gc.ghost.visible = gc.done.visible = on; });
+$('#look').onchange = applyLook;
+$('#hideMenu').onclick = () => { document.body.classList.add('hidemenu'); updateFab(); };
+$('#fabShow').onclick = () => { document.body.classList.remove('hidemenu'); updateFab(); };
+$('#fabPlay').onclick = () => $('#gplay').click();
+
+/* ---------- previews / file browser ---------- */
+function readRLFInfo(u8) {
+  const head = new TextDecoder('latin1').decode(u8.subarray(0, 700));
+  const info = {};
+  let m = head.match(/(\d+)\s+pixels wide by\s+(\d+)\s+pixels high/); if (m) info.px = [+m[1], +m[2]];
+  m = head.match(/relief is\s+([\d.]+)mm wide by\s+([\d.]+)mm high/); if (m) info.mm = [+m[1], +m[2]];
+  m = head.match(/Maximum height in the relief is\s+([\d.]+)mm/); if (m) info.maxh = +m[1];
+  const L = u8.length, S = 43216;   // ArtCAM 2018+ stores a 120x120 BGR preview at the end of the file
+  if (L > S + 700) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    if (dv.getUint32(L - S, true) === S && dv.getUint32(L - S + 4, true) === 120 && dv.getUint32(L - S + 8, true) === 120)
+      info.thumb = u8.subarray(L - S + 12, L - 4);
+  }
+  return info;
+}
+function thumbCanvas(bgr) {
+  const cv = document.createElement('canvas'); cv.width = 120; cv.height = 120;
+  const ctx = cv.getContext('2d'), im = ctx.createImageData(120, 120);
+  for (let i = 0; i < 14400; i++) {
+    im.data[i * 4] = bgr[i * 3 + 2]; im.data[i * 4 + 1] = bgr[i * 3 + 1]; im.data[i * 4 + 2] = bgr[i * 3]; im.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  return cv;
+}
+function shadedCanvas(w, h, data, wmm) {
+  const step = Math.max(1, Math.ceil(Math.max(w, h) / 160));
+  const nw = Math.max(2, Math.floor(w / step)), nh = Math.max(2, Math.floor(h / step));
+  const g = new Float32Array(nw * nh);
+  let mn = Infinity, mx = -Infinity;
+  for (let j = 0; j < nh; j++) for (let i = 0; i < nw; i++) {
+    const v = data[Math.min(h - 1, j * step) * w + Math.min(w - 1, i * step)];
+    g[j * nw + i] = v; if (v < mn) mn = v; if (v > mx) mx = v;
+  }
+  const range = (mx - mn) || 1, pitch = ((wmm / w) * step) || 1;
+  const cv = document.createElement('canvas'); cv.width = nw; cv.height = nh;
+  const ctx = cv.getContext('2d'), im = ctx.createImageData(nw, nh), c = [0, 0, 0];
+  for (let j = 0; j < nh; j++) for (let i = 0; i < nw; i++) {
+    const x0 = Math.max(0, i - 1), x1 = Math.min(nw - 1, i + 1), y0 = Math.max(0, j - 1), y1 = Math.min(nh - 1, j + 1);
+    const dx = (g[j * nw + x1] - g[j * nw + x0]) / ((x1 - x0) * pitch);
+    const dy = (g[y1 * nw + i] - g[y0 * nw + i]) / ((y1 - y0) * pitch);
+    const lam = Math.max(0, (0.5 * dx + 0.5 * dy + 0.7) / Math.hypot(dx, dy, 1));
+    const sh = 0.4 + 0.8 * lam;
+    ramp((g[j * nw + i] - mn) / range, c, 0);
+    const k = (j * nw + i) * 4;
+    im.data[k] = Math.min(255, c[0] * sh * 255); im.data[k + 1] = Math.min(255, c[1] * sh * 255);
+    im.data[k + 2] = Math.min(255, c[2] * sh * 255); im.data[k + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  return cv;
+}
+function placeholderCanvas(text) {
+  const cv = document.createElement('canvas'); cv.width = 120; cv.height = 120;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = cssVar('--line'); ctx.fillRect(0, 0, 120, 120);
+  ctx.fillStyle = cssVar('--muted'); ctx.font = '600 22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 60, 60);
+  return cv;
+}
+function pathCanvas(prog) {
+  const cv = document.createElement('canvas'); cv.width = 120; cv.height = 120;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = cssVar('--line'); ctx.fillRect(0, 0, 120, 120);
+  const b = prog.bounds, w = (b.max[0] - b.min[0]) || 1, h = (b.max[1] - b.min[1]) || 1;
+  const sc = 104 / Math.max(w, h), ox = (120 - w * sc) / 2, oy = (120 - h * sc) / 2;
+  ctx.strokeStyle = cssVar('--teal'); ctx.lineWidth = 1; ctx.beginPath();
+  const stride = Math.max(1, Math.floor(prog.n / 20000)), P = prog.pts;
+  for (let s = 0; s < prog.n; s += stride) {
+    if (!prog.kind[s]) continue;
+    const o = s * 6;
+    ctx.moveTo(ox + (P[o] - b.min[0]) * sc, 120 - (oy + (P[o + 1] - b.min[1]) * sc));
+    ctx.lineTo(ox + (P[o + 3] - b.min[0]) * sc, 120 - (oy + (P[o + 4] - b.min[1]) * sc));
+  }
+  ctx.stroke();
+  return cv;
+}
+let galleryFiles = [];
+async function showFiles(files) {
+  galleryFiles = files;
+  document.body.classList.remove('hidemenu'); updateFab();
+  const grid = $('#galGrid'); grid.innerHTML = '';
+  $('#galTitle').textContent = files.length + (files.length === 1 ? ' file' : ' files');
+  $('#gallery').hidden = false; $('#filesBtn').hidden = false;
+  for (const file of files) {
+    const card = document.createElement('button');
+    card.className = 'card';
+    const holder = document.createElement('div');
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = file.name;
+    const mt = document.createElement('span'); mt.className = 'mt'; mt.textContent = fmtBytes(file.size) + ' · reading…';
+    card.append(holder, nm, mt); grid.appendChild(card);
+    let opens = false;
+    let action = () => { toast('This file type cannot be shown.'); };
+    try {
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      if (['png', 'jpg', 'jpeg', 'bmp', 'webp', 'gif'].includes(ext)) {
+        const bmp = await createImageBitmap(file), sc = Math.min(1, 240 / Math.max(bmp.width, bmp.height));
+        const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * sc); cv.height = Math.round(bmp.height * sc);
+        cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+        holder.appendChild(cv); mt.textContent = bmp.width + ' × ' + bmp.height + ' image';
+        action = () => openFile(file); opens = true;
+      } else if (GCODE_EXT.includes(ext)) {
+        const text = await file.text();
+        if (!looksLikeGcode(text.slice(0, 4000))) { holder.appendChild(placeholderCanvas('?')); mt.textContent = 'Not a recognised file'; }
+        else {
+          const pr = parseGcode(text, 5000);
+          holder.appendChild(pathCanvas(pr));
+          mt.textContent = 'G-code · ' + fmtTime(pr.total) + ' · ' + fmtNum(pr.bounds.max[0] - pr.bounds.min[0]) + ' × ' + fmtNum(pr.bounds.max[1] - pr.bounds.min[1]) + ' mm path';
+          action = () => openFile(file); opens = true;
+        }
+      } else if (ext === 'stl' || ext === 'obj') {
+        holder.appendChild(placeholderCanvas(ext.toUpperCase())); mt.textContent = ext.toUpperCase() + ' model · ' + fmtBytes(file.size);
+        action = () => openFile(file); opens = true;
+      } else {
+        const u8 = new Uint8Array(await file.arrayBuffer());
+        const info = readRLFInfo(u8);
+        const size = info.mm ? fmtNum(info.mm[0]) + ' × ' + fmtNum(info.mm[1]) + ' mm' : '';
+        const high = info.maxh != null ? 'up to ' + fmtNum(info.maxh) + ' mm high' : '';
+        const facts = [size, high].filter(Boolean).join(' · ');
+        try {
+          const r = parseRLF(u8);
+          holder.appendChild(shadedCanvas(r.W, r.H, r.data, r.wmm));
+          mt.textContent = facts + (facts ? ' · ' : '') + 'opens in 3D';
+          action = () => openFile(file); opens = true;
+        } catch (e) {
+          if (info.thumb) holder.appendChild(thumbCanvas(info.thumb)); else holder.appendChild(placeholderCanvas('RLF'));
+          if (e.code === 'PROTECTED') {
+            mt.textContent = facts + (facts ? ' · ' : '') + 'preview only (ArtCAM 2018+)';
+            action = () => toast('ArtCAM 2018+ files cannot be opened in 3D here. Export the relief as STL or a grayscale image from ArtCAM.', 7000);
+          } else {
+            mt.textContent = (facts ? facts + ' · ' : '') + 'unsupported .rlf variant';
+          }
+        }
+      }
+    } catch (err) {
+      holder.appendChild(placeholderCanvas('?')); mt.textContent = 'Could not read this file';
+    }
+    card.onclick = () => { if (opens) $('#gallery').hidden = true; action(); };
+  }
+}
+$('#galClose').onclick = () => { $('#gallery').hidden = true; };
+$('#filesBtn').onclick = () => { if (galleryFiles.length) $('#gallery').hidden = false; };
+
+/* ---------- export: hi-res image and depth-map PNG ---------- */
+const PNG_SIG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(parts) {
+  let c = 0xFFFFFFFF;
+  for (const u of parts) for (let i = 0; i < u.length; i++) c = CRC_TABLE[(c ^ u[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function pngChunk(type, data) {
+  const t = new TextEncoder().encode(type), head = new Uint8Array(8), crc = new Uint8Array(4);
+  new DataView(head.buffer).setUint32(0, data.length); head.set(t, 4);
+  new DataView(crc.buffer).setUint32(0, crc32([t, data]));
+  return [head, data, crc];
+}
+async function zlibCompress(raw) {
+  if (typeof CompressionStream !== 'undefined') {
+    const buf = await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer();
+    return new Uint8Array(buf);
+  }
+  const nb = Math.max(1, Math.ceil(raw.length / 65535)), out = new Uint8Array(2 + raw.length + nb * 5 + 4);
+  out[0] = 0x78; out[1] = 0x01;
+  let o = 2, p = 0;
+  do {                                   // stored (uncompressed) blocks: bigger file, but works everywhere
+    const len = Math.min(65535, raw.length - p), fin = p + len >= raw.length ? 1 : 0;
+    out[o++] = fin; out[o++] = len & 255; out[o++] = len >> 8; out[o++] = ~len & 255; out[o++] = (~len >> 8) & 255;
+    out.set(raw.subarray(p, p + len), o); o += len; p += len;
+  } while (p < raw.length);
+  let a = 1, b = 0;
+  for (let i = 0; i < raw.length; i++) { a = (a + raw[i]) % 65521; b = (b + a) % 65521; }
+  out[o++] = b >> 8; out[o++] = b & 255; out[o++] = a >> 8; out[o++] = a & 255;
+  return out;
+}
+async function encodeGrayPNG(w, h, data, bits) {      // white = highest, black = lowest
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < data.length; i++) { const v = data[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+  if (!isFinite(mn)) throw new Error('No height values to export.');
+  const inv = 1 / ((mx - mn) || 1), bpp = bits / 8, rowLen = 1 + w * bpp, raw = new Uint8Array(rowLen * h);
+  for (let y = 0; y < h; y++) {
+    let o = y * rowLen + 1; const k = y * w;
+    if (bits === 8) for (let x = 0; x < w; x++) { const v = data[k + x]; raw[o++] = v === v ? Math.round((v - mn) * inv * 255) : 0; }
+    else for (let x = 0; x < w; x++) { const v = data[k + x], q = v === v ? Math.round((v - mn) * inv * 65535) : 0; raw[o++] = q >> 8; raw[o++] = q & 255; }
+  }
+  const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer);
+  dv.setUint32(0, w); dv.setUint32(4, h); ihdr[8] = bits; ihdr[9] = 0;
+  const z = await zlibCompress(raw);
+  return new Blob([PNG_SIG, ...pngChunk('IHDR', ihdr), ...pngChunk('IDAT', z), ...pngChunk('IEND', new Uint8Array(0))], { type: 'image/png' });
+}
+function rasterizeMeshHeights(pos, long) {              // top-down height grid of an STL/OBJ model
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity;
+  for (let i = 0; i < pos.length; i += 3) {
+    if (pos[i] < x0) x0 = pos[i]; if (pos[i] > x1) x1 = pos[i];
+    if (pos[i + 1] < y0) y0 = pos[i + 1]; if (pos[i + 1] > y1) y1 = pos[i + 1];
+    if (pos[i + 2] < z0) z0 = pos[i + 2];
+  }
+  const sc = (long - 1) / (Math.max(x1 - x0, y1 - y0) || 1);
+  const w = Math.max(2, Math.round((x1 - x0) * sc) + 1), h = Math.max(2, Math.round((y1 - y0) * sc) + 1);
+  const g = new Float32Array(w * h).fill(z0);
+  for (let t = 0; t + 8 < pos.length; t += 9) {
+    const ax = (pos[t] - x0) * sc, ay = (y1 - pos[t + 1]) * sc, az = pos[t + 2];
+    const bx = (pos[t + 3] - x0) * sc, by = (y1 - pos[t + 4]) * sc, bz = pos[t + 5];
+    const cx = (pos[t + 6] - x0) * sc, cy = (y1 - pos[t + 7]) * sc, cz = pos[t + 8];
+    const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    if (Math.abs(den) < 1e-12) continue;
+    const mnx = Math.max(0, Math.floor(Math.min(ax, bx, cx))), mxx = Math.min(w - 1, Math.ceil(Math.max(ax, bx, cx)));
+    const mny = Math.max(0, Math.floor(Math.min(ay, by, cy))), mxy = Math.min(h - 1, Math.ceil(Math.max(ay, by, cy)));
+    for (let py = mny; py <= mxy; py++) for (let px = mnx; px <= mxx; px++) {
+      const l1 = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / den;
+      const l2 = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / den, l3 = 1 - l1 - l2;
+      if (l1 < -1e-6 || l2 < -1e-6 || l3 < -1e-6) continue;
+      const z = l1 * az + l2 * bz + l3 * cz, k = py * w + px;
+      if (z > g[k]) g[k] = z;
+    }
+  }
+  return { w, h, data: g };
+}
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+function fileBase() {
+  const n = (mode === 'tool' && gc.name ? gc.name : currentLabel) || 'relief';
+  return n.replace(/\.[^.]+$/, '').replace(/[^\w.\- ]+/g, '_') || 'relief';
+}
+async function saveDepth(bits) {
+  try {
+    const src = lastGrid || (mesh ? rasterizeMeshHeights(mesh.geometry.attributes.position.array, 2048) : null);
+    if (!src) { toast('Open a relief first.'); return; }
+    toast('Preparing depth map…', 60000);
+    await new Promise(r => setTimeout(r, 40));
+    const blob = await encodeGrayPNG(src.w, src.h, src.data, bits);
+    downloadBlob(blob, fileBase() + (bits === 16 ? '_depth16.png' : '_depth.png'));
+    toast('Saved ' + src.w + ' × ' + src.h + ' depth map (' + bits + '-bit, white = highest).', 6000);
+  } catch (e) { toast('Could not save the depth map. ' + (e.message || '')); }
+}
+async function saveImage() {
+  try {
+    const w0 = window.innerWidth, h0 = window.innerHeight, gl = renderer.getContext();
+    const lim = Math.min(Number(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)) || 4096, Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096, 8192);
+    toast('Rendering high-quality image…', 60000);
+    await new Promise(r => setTimeout(r, 40));
+    let url = '', ow = 0, oh = 0;
+    for (const target of [4096, 3072, 2048, 1280]) {
+      const sc = Math.min(target, lim) / Math.max(w0, h0);
+      ow = Math.round(w0 * sc); oh = Math.round(h0 * sc);
+      renderer.setPixelRatio(1); renderer.setSize(ow, oh, false);
+      placeCamera(); renderer.render(scene, camera);
+      url = renderer.domElement.toDataURL('image/png');
+      if (url.length > 1000) break;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.setSize(w0, h0, false); dirty = true;
+    if (url.length <= 1000) { toast('This device cannot render a large image.'); return; }
+    const bin = atob(url.split(',')[1]), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    downloadBlob(new Blob([u8], { type: 'image/png' }), fileBase() + '_view.png');
+    toast('Saved ' + ow + ' × ' + oh + ' px image.', 6000);
+  } catch (e) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.setSize(window.innerWidth, window.innerHeight, false); dirty = true;
+    toast('Could not save the image. ' + (e.message || ''));
+  }
+}
+$('#saveImg').onclick = $('#saveImgT').onclick = saveImage;
+$('#saveD8').onclick = () => saveDepth(8);
+$('#saveD16').onclick = () => saveDepth(16);
+
+/* ---------- opening files ---------- */
+async function openFile(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  try {
+    if (['png', 'jpg', 'jpeg', 'bmp', 'webp', 'gif'].includes(ext)) await loadImage(file);
+    else if (ext === 'stl') buildTriangles(parseSTL(await file.arrayBuffer()), file.name);
+    else if (ext === 'obj') buildTriangles(parseOBJ(await file.text()), file.name);
+    else if (GCODE_EXT.includes(ext)) {
+      const text = await file.text();
+      if (!looksLikeGcode(text.slice(0, 4000))) throw new Error('This does not look like G-code.');
+      loadGcodeText(text, file.name);
+    } else {
+      const buf = await file.arrayBuffer();
+      const head = new TextDecoder('latin1').decode(new Uint8Array(buf, 0, Math.min(4000, buf.byteLength)));
+      if (head.slice(0, 800).indexOf('\x1a') < 0 && looksLikeGcode(head)) loadGcodeText(new TextDecoder().decode(buf), file.name);
+      else await loadRLF(buf, file.name, file);
+    }
+  } catch (e) { toast('Could not open this file. ' + (e.message || '')); }
+}
+const fileInput = $('#file');
+$('#open').onclick = $('#open2').onclick = () => fileInput.click();
+fileInput.addEventListener('change', async () => {
+  const files = [...fileInput.files]; fileInput.value = '';
+  if (files.length > 1) await showFiles(files);
+  else if (files.length === 1) { $('#gallery').hidden = true; await openFile(files[0]); }
+});
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => { e.preventDefault(); const fs = [...e.dataTransfer.files]; if (fs.length > 1) showFiles(fs); else if (fs[0]) openFile(fs[0]); });
+
+$('#sample').onclick = () => {
+  const n = 320, d = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const u = x / (n - 1) * 2 - 1, v = y / (n - 1) * 2 - 1, r = Math.hypot(u, v), a = Math.atan2(v, u);
+    let z = 0;
+    if (r < 1) {
+      const petal = Math.pow(Math.abs(Math.cos(4 * a)), 0.8);
+      z = Math.max(0, 1 - r) * 0.7 + 0.25 * petal * Math.exp(-Math.pow((r - 0.55) / 0.18, 2))
+        + 0.08 * Math.cos(r * 40) * (1 - r) + 0.35 * Math.exp(-Math.pow((r - 0.93) / 0.03, 2));
+    }
+    d[y * n + x] = z * 5;
+  }
+  buildHeightmap(n, n, d, 'Sample rosette');
+};
+
+/* ---------- controls ---------- */
+$('#z').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  $('#zv').textContent = v.toFixed(1) + '×';
+  if (mesh) { mesh.scale.z = v; }
+  dirty = true;
+});
+$('#qual').addEventListener('change', () => {
+  if (!lastGrid) return;
+  try { keepCam = true; buildHeightmap(lastGrid.w, lastGrid.h, lastGrid.data, lastGrid.label, lastGrid.phys); }
+  catch (e) { keepCam = false; toast('Could not rebuild at this detail level. ' + (e.message || '')); }
+});
+$('#vtop').onclick = () => setView('top');
+$('#vang').onclick = () => setView('angle');
+function toggle(btn, fn) {
+  btn.onclick = () => {
+    const on = btn.getAttribute('aria-pressed') !== 'true';
+    btn.setAttribute('aria-pressed', on); fn(on); dirty = true;
+  };
+}
+toggle($('#wire'), on => { if (mesh) mesh.material.wireframe = on; });
+
+applyTheme(); resize(); loop();
+})();
+</script>
+</body>
+</html>
